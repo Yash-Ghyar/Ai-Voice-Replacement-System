@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request, send_from_directory
+import uuid
+import traceback
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for
 from dotenv import load_dotenv
 import requests
 from moviepy.editor import VideoFileClip, AudioFileClip
@@ -7,127 +9,159 @@ from werkzeug.utils import secure_filename
 from faster_whisper import WhisperModel
 import torch
 
-# ------------------ CONFIG ------------------
-app = Flask(__name__)
+# translation (optional)
+try:
+    from googletrans import Translator
+    translator = Translator()
+    HAVE_TRANSLATOR = True
+except:
+    translator = None
+    HAVE_TRANSLATOR = False
+
+
+app = Flask(__name__, static_folder="static", template_folder="templates")
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024   # 500 MB upload limit
+
 load_dotenv("api.env")
 
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "assets/outputs"
+BASE = os.getcwd()
+UPLOAD_FOLDER = os.path.join(BASE, "uploads")
+OUTPUT_FOLDER = os.path.join(BASE, "assets", "outputs")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
 VOICE_ID = os.getenv("ELEVEN_VOICE_ID")
 
-# Load Whisper ONCE (important!!)
-WHISPER_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-whisper_model = WhisperModel("small", device=WHISPER_DEVICE)
-print("🔥 Whisper model loaded ONCE!")
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+whisper_model = WhisperModel("small", device=DEVICE)
+print("Whisper Loaded!", DEVICE)
 
 
-# ------------------ STEP 1: Extract audio ------------------
-def extract_audio(video_path, output_audio_path):
-    print("🎬 Extracting audio...")
-    clip = VideoFileClip(video_path)
-    clip.audio.write_audiofile(output_audio_path, verbose=False, logger=None)
+# -------------------------
+# Helper functions
+# -------------------------
+def safe_filename(original):
+    base = secure_filename(original)
+    return f"{uuid.uuid4().hex[:8]}_{base}"
+
+
+def extract_audio(video, wav_out):
+    clip = VideoFileClip(video)
+    clip.audio.write_audiofile(wav_out, codec="pcm_s16le", verbose=False, logger=None)
     clip.close()
-    print("✅ Audio extracted:", output_audio_path)
 
 
-# ------------------ STEP 2: Transcribe ------------------
-def transcribe_audio(audio_path):
-    print(f"🎧 Transcribing: {audio_path}")
-    segments, _ = whisper_model.transcribe(audio_path)
-
-    text = " ".join([seg.text.strip() for seg in segments])
-    print("📝 Transcribed text preview:", text[:150], "...")
-    return text
+def transcribe_audio(wav):
+    segments, _ = whisper_model.transcribe(wav)
+    return " ".join([s.text.strip() for s in segments])
 
 
-# ------------------ STEP 3: Generate AI Voice (ElevenLabs) ------------------
-def generate_ai_voice(text, output_path):
-    print("🎤 Generating AI voice via ElevenLabs...")
+def translate_text(text, lang):
+    if not HAVE_TRANSLATOR:
+        return text
+    try:
+        if lang == "hindi":
+            return translator.translate(text, dest="hi").text
+        return translator.translate(text, dest="en").text
+    except:
+        return text
 
+
+def ai_voice(text, out):
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}/stream"
-
     headers = {"xi-api-key": ELEVEN_API_KEY}
-
-    data = {
+    payload = {
         "text": text,
         "model_id": "eleven_multilingual_v2",
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8},
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
     }
-
-    response = requests.post(url, json=data, headers=headers, stream=True)
-
-    if response.status_code != 200:
-        raise Exception(
-            f"❌ ElevenLabs Error: {response.status_code} {response.text}"
-        )
-
-    with open(output_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=4096):
+    r = requests.post(url, json=payload, headers=headers, stream=True)
+    with open(out, "wb") as f:
+        for chunk in r.iter_content(4096):
             f.write(chunk)
 
-    print("✅ AI voice saved:", output_path)
 
+def merge_audio(video, audio, out):
+    v = VideoFileClip(video)
+    a = AudioFileClip(audio)
 
-# ------------------ STEP 4: Replace Audio in Video ------------------
-def replace_audio_in_video(video_path, new_audio_path, output_video_path):
-    print("🎥 Combining video with AI audio...")
+    if a.duration > v.duration:
+        a = a.subclip(0, v.duration)
 
-    video = VideoFileClip(video_path)
-    new_audio = AudioFileClip(new_audio_path)
-
-    if new_audio.duration > video.duration:
-        new_audio = new_audio.subclip(0, video.duration)
-
-    final = video.set_audio(new_audio)
-    final.write_videofile(
-        output_video_path,
-        codec="libx264",
-        audio_codec="aac",
-        verbose=False,
-        logger=None,
-    )
-
-    video.close()
-    new_audio.close()
+    final = v.set_audio(a)
+    final.write_videofile(out, codec="libx264", audio_codec="aac",
+                          verbose=False, logger=None)
+    v.close()
+    a.close()
     final.close()
 
-    print("✅ Final video saved:", output_video_path)
 
+# -------------------------
+# Routes
+# -------------------------
 
-# ------------------ ROUTES ------------------
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/upload_video", methods=["POST"])
-def upload_video():
-    file = request.files.get("video")
-    if not file:
-        return "❌ No video uploaded"
+# ⭐ FIX ROUTE: Add GET for browser prefetch
+@app.route("/start", methods=["GET"])
+def start_redirect():
+    return redirect("/")
 
-    # Safe filename
-    filename = secure_filename(file.filename)
-    video_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(video_path)
 
-    extracted_audio = os.path.join(UPLOAD_FOLDER, "extracted.wav")
-    ai_audio = os.path.join(OUTPUT_FOLDER, "ai_voice.wav")
-    final_video = os.path.join(OUTPUT_FOLDER, "final_output.mp4")
+# Step 1 → Upload file, go to spinner page
+@app.route("/start", methods=["POST"])
+def start():
+    try:
+        vid = request.files.get("video")
+        lang = request.form.get("target_lang")
 
-    # Pipeline
-    extract_audio(video_path, extracted_audio)
-    text = transcribe_audio(extracted_audio)
-    generate_ai_voice(text, ai_audio)
-    replace_audio_in_video(video_path, ai_audio, final_video)
+        if not vid:
+            return "No file uploaded", 400
 
-    return render_template(
-        "result.html", output_video="final_output.mp4"
-    )
+        saved_name = safe_filename(vid.filename)
+        saved_path = os.path.join(UPLOAD_FOLDER, saved_name)
+        vid.save(saved_path)
+
+        return render_template("processing.html",
+                               filename=saved_name,
+                               lang=lang)
+
+    except Exception as e:
+        traceback.print_exc()
+        return f"Error: {str(e)}", 500
+
+
+# Step 2 → Heavy processing (triggered automatically by spinner)
+@app.route("/process_real")
+def process_real():
+    try:
+        filename = request.args.get("filename")
+        lang = request.args.get("lang")
+
+        uid = uuid.uuid4().hex[:8]
+        src_wav = os.path.join(UPLOAD_FOLDER, f"{uid}_src.wav")
+        ai_wav = os.path.join(OUTPUT_FOLDER, f"{uid}_ai.wav")
+        final_vid = os.path.join(OUTPUT_FOLDER, f"{uid}_final.mp4")
+
+        video_path = os.path.join(UPLOAD_FOLDER, filename)
+
+        extract_audio(video_path, src_wav)
+        text = transcribe_audio(src_wav)
+        translated = translate_text(text, lang)
+        ai_voice(translated, ai_wav)
+        merge_audio(video_path, ai_wav, final_vid)
+
+        return render_template("result.html",
+                               output_video=os.path.basename(final_vid))
+
+    except Exception as e:
+        traceback.print_exc()
+        return "Processing failed: " + str(e)
 
 
 @app.route("/assets/outputs/<path:filename>")
@@ -135,6 +169,5 @@ def serve_video(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
 
 
-# ------------------ MAIN ------------------
 if __name__ == "__main__":
     app.run(debug=True)

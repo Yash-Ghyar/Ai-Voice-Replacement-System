@@ -2,8 +2,12 @@
 body {
   font-family: "Poppins", sans-serif;
   color: #f8f9fa;
-  overflow: hidden;
+  overflow-y: auto;      /* ✅ allow scroll */
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
+
 
 /* === Animated Background === */
 .gradient-bg {
@@ -31,7 +35,7 @@ body {
   background: rgba(17, 25, 40, 0.85);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  width: 400px;
+  width: 420px;
   transition: all 0.3s ease;
 }
 
@@ -40,11 +44,20 @@ body {
   box-shadow: 0 0 40px rgba(13, 202, 240, 0.3);
 }
 
-/* === Title Glow === */
+/* === Premium Glow Title === */
 .title-glow {
-  text-shadow: 0 0 10px rgba(13, 202, 240, 0.8),
-               0 0 20px rgba(13, 202, 240, 0.6);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #00eaff;
+  text-shadow:
+      0 0 5px   rgba(0, 234, 255, 0.6),
+      0 0 10px  rgba(0, 234, 255, 0.7),
+      0 0 20px  rgba(0, 234, 255, 0.4),
+      0 0 40px  rgba(0, 234, 255, 0.3);
+  letter-spacing: 1.5px;
+  text-align: center;
 }
+
 
 /* === File Upload === */
 .file-upload {
@@ -53,7 +66,7 @@ body {
   height: 120px;
   border: 2px dashed rgba(13, 202, 240, 0.4);
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,7 +75,7 @@ body {
 }
 
 .file-upload:hover {
-  background: rgba(13, 202, 240, 0.1);
+  background: rgba(13, 202, 240, 0.06);
   box-shadow: 0 0 25px rgba(13, 202, 240, 0.3);
 }
 
@@ -72,43 +85,57 @@ body {
 
 .upload-label {
   color: #0dcaf0;
-  font-weight: 500;
-  font-size: 1.1rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.upload-label i {
-  font-size: 2rem;
-  margin-right: 10px;
-  vertical-align: middle;
+/* === Form controls override to blend with glass card === */
+.form-select, .form-control {
+  background: rgba(255,255,255,0.03);
+  color: #f8f9fa;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
 }
 
 /* === Button Glow === */
+/* === Button Glow (FIXED) === */
 .glow-btn {
-  background-color: #0dcaf0;
+  background: linear-gradient(90deg, #00e5ff, #0099ff);
   border: none;
-  color: #fff;
-  font-weight: 600;
+  color: white !important;           /* 🟢 text visible */
+  font-weight: 700;
   font-size: 1rem;
   transition: all 0.3s ease;
-  box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);
+  box-shadow: 0 8px 25px rgba(0, 200, 255, 0.25);
+  padding: 12px 18px;
+  border-radius: 12px;
 }
 
 .glow-btn:hover {
-  background-color: #0bb3d9;
-  box-shadow: 0 0 25px rgba(13, 202, 240, 0.6);
-  transform: scale(1.02);
+  background: linear-gradient(90deg, #00c8ff, #007bff);
+  box-shadow: 0 12px 45px rgba(0, 200, 255, 0.35);
+  transform: translateY(-3px);
 }
+
 
 /* === Spinner === */
 .spinner-border {
   width: 3rem;
   height: 3rem;
+  border-width: 0.35rem;
 }
 
 /* === Responsive === */
 @media (max-width: 768px) {
   .upload-card {
-    width: 90%;
-    padding: 2rem;
+    width: 92%;
+    padding: 1.2rem;
+  }
+
+  video {
+    width: 100% !important;
   }
 }
