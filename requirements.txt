@@ -1,0 +1,33 @@
+# === Core Web Framework ===
+Flask==3.0.3
+Flask-Cors==4.0.0
+gunicorn==21.2.0   # ✅ Required for Render deployment
+
+# === Audio Processing ===
+soundfile==0.12.1
+pydub==0.25.1
+librosa==0.10.2.post1
+
+# === Speech Recognition (Whisper) ===
+openai-whisper==20231117
+tqdm==4.66.4
+
+# === Text-to-Speech (ElevenLabs + Bark optional) ===
+elevenlabs==1.6.0
+bark==0.1.5
+torch==2.3.0
+transformers==4.40.0
+
+# === Video Processing ===
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+
+# === Utilities ===
+numpy==1.26.4
+scipy==1.13.0
+pandas==2.2.2
+langdetect==1.0.9
+
+# === Environment & Logging ===
+python-dotenv==1.0.1
+colorlog==6.8.2
