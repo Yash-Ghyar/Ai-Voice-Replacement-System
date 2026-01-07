@@ -14,7 +14,7 @@
 
   <div class="gradient-bg"></div>
 
-  <!-- ❌ Remove vh-100  |  ✅ Add py-5 -->
+  <!-- Main Upload Card -->
   <div class="d-flex justify-content-center align-items-center py-5">
     <div class="upload-card p-4">
 
@@ -25,6 +25,7 @@
 
       <form action="/start" method="POST" enctype="multipart/form-data">
 
+        <!-- File Upload -->
         <div class="file-upload mb-3" onclick="document.getElementById('videoInput').click()">
           <input type="file" id="videoInput" name="video" accept="video/*" required style="display:none;" />
           <label class="upload-label">
@@ -32,19 +33,26 @@
           </label>
         </div>
 
+        <!-- Reference Voice Selection -->
         <label class="upload-label">Reference Voice</label>
         <select name="ref_voice" class="form-select mb-3">
-          <option value="ref_voice_en.wav">English voice</option>
-          <option value="ref_voice_hi.wav">Hindi voice</option>
+          <option value="voices/ref_voice_en.wav">English voice</option>
+          <option value="voices/ref_voice_hi.wav">Hindi voice</option>
+          <option value="voices/ref_voice_mr.wav">Marathi voice</option>
+
         </select>
 
+        <!-- Translation Language Selection -->
         <label class="upload-label">Translate to</label>
         <select name="target_lang" class="form-select mb-4" required>
           <option value="english">English</option>
           <option value="hindi">Hindi</option>
+          <option value="marathi">Marathi</option>
         </select>
 
+        <!-- Submit Button -->
         <button type="submit" class="btn glow-btn w-100">🚀 Start AI Processing</button>
+
       </form>
 
     </div>
