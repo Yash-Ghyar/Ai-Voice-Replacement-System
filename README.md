@@ -149,7 +149,4 @@ VOICE_ID_MR=marathi_voice_id
 
 **Yash Ghyar**  
 B.Tech – Artificial Intelligence & Data Science  
-VIT Pune
-
----
-⭐ If you found this project useful, consider giving it a star.
+VIIT Pune
